@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 public class FileDatabase {
@@ -38,7 +39,8 @@ public class FileDatabase {
 	private Path path;
 	private Long inode;
 	private String digest;
-	private static final String digestAlgorithm = "MD5";
+	private Optional<Long> size = Optional.empty();
+	private static final String DIGEST_ALGORITHM = "MD5";
 
 	public FileEntry(Path file) {
 	    this.path = file;
@@ -52,7 +54,7 @@ public class FileDatabase {
 	public String getDigest() {
 	    if (digest == null) {
 		try {
-		    MessageDigest messageDigest = MessageDigest.getInstance(digestAlgorithm);
+		    MessageDigest messageDigest = MessageDigest.getInstance(DIGEST_ALGORITHM);
 		    final int BUFFER_SIZE = 1024 * 1024;
 		    byte[] buffer = new byte[BUFFER_SIZE];
 		    try (InputStream inputStream = Files.newInputStream(path);
@@ -114,6 +116,14 @@ public class FileDatabase {
 	    } else {
 		return inode;
 	    }
+	}
+
+	private long getSize() throws IOException {
+	    if (!size.isPresent()) {
+	    } else {
+		size = Optional.of(Files.size(path));
+	    }
+	    return size.get();
 	}
 
     }
