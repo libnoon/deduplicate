@@ -13,10 +13,10 @@ import java.nio.file.StandardOpenOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Logger;
 
@@ -30,6 +30,7 @@ public class FileDatabase {
     private Map<String, List<FileEntry>> digestMap = new HashMap<>();
 
     public void add(Path file) {
+	Objects.requireNonNull(file);
 	FileEntry fileEntry = new FileEntry(file);
 
 	fileEntries.add(fileEntry);
@@ -43,6 +44,7 @@ public class FileDatabase {
 	private static final String DIGEST_ALGORITHM = "MD5";
 
 	public FileEntry(Path file) {
+	    Objects.requireNonNull(file);
 	    this.path = file;
 	}
 
@@ -85,6 +87,7 @@ public class FileDatabase {
 	}
 
 	public boolean isDuplicateOf(FileEntry candidate) {
+	    Objects.requireNonNull(candidate);
 	    if (getInode() == candidate.getInode()) {
 		return false;
 	    }
@@ -132,6 +135,7 @@ public class FileDatabase {
 	private Path path;
 
 	public TempDir(Path parent) {
+	    Objects.requireNonNull(parent);
 	    try {
 		this.path = Files.createTempDirectory(parent, null);
 	    } catch (IOException e) {
@@ -164,6 +168,8 @@ public class FileDatabase {
 	private boolean linkStillPresent;
 
 	public TempLink(Path link, Path target) throws IOException {
+	    Objects.requireNonNull(link);
+	    Objects.requireNonNull(target);
 	    this.link = link;
 	    this.target = target;
 	    Files.createLink(link, target);
@@ -171,22 +177,8 @@ public class FileDatabase {
 	}
 
 	public void move(Path newPath) throws IOException {
-	    if (!Files.exists(link)) {
-		throw new RuntimeException(String.format("%s does not exist", link));
-	    }
-	    logger.info(String.format("%s and %s isSameFile=%s", link, newPath, Files.isSameFile(link, newPath)));
-	    logger.info(String.format("Moving %s to %s...", link, newPath));
+	    Objects.requireNonNull(newPath);
 	    Files.move(link, newPath, StandardCopyOption.ATOMIC_MOVE);
-	    logger.info(String.format("moving %s to %s done", link, newPath));
-	    try {
-		Process find = new ProcessBuilder().command(Arrays.asList("find", ".", "-ls")).inheritIO().start();
-		find.waitFor();
-	    } catch (Exception e) {
-		throw new RuntimeException("cannot run find", e);
-	    }
-	    if (Files.exists(link)) {
-		throw new RuntimeException(String.format("%s still exists", link));
-	    }
 	    linkStillPresent = false;
 	}
 
@@ -196,12 +188,12 @@ public class FileDatabase {
 	}
 
 	@Override
-	public void close() {
+	public void close() throws IOException {
 	    if (linkStillPresent) {
 		try {
 		    Files.delete(link);
 		} catch (IOException e) {
-		    logger.warning(String.format("%s: cannot delete %s: %s", toString(), link, e));
+		    throw new IOException(String.format("%s: cannot delete %s", toString(), link), e);
 		}
 	    }
 	}
@@ -228,8 +220,7 @@ public class FileDatabase {
 
 	    SUBJECT: for (int i = 0; i < list.size(); i++) {
 		// If "subject" has a duplicate, then replace the duplicate with
-		// a
-		// link to the subject.
+		// a link to the subject.
 		FileEntry subject = list.get(i);
 		// Try to remove subject as a duplicate of something else.
 		for (int j = i + 1; j < list.size(); j++) {
@@ -241,19 +232,24 @@ public class FileDatabase {
 
 		    if (subject.isDuplicateOf(candidateDuplicate)) {
 			logger.info(String.format("dup: subject=%s and dup=%s", subject, candidateDuplicate));
-
-			try (TempDir tempDir = new TempDir(candidateDuplicate.getPath().getParent())) {
-			    Path link = tempDir.getPath().resolve("link");
-
-			    try (TempLink tempLink = new TempLink(link, subject.getPath())) {
-				tempLink.move(candidateDuplicate.getPath());
-			    } catch (IOException e) {
-				e.printStackTrace();
-			    }
-			    continue SUBJECT;
-			}
+			replaceWithHardLink(subject, candidateDuplicate);
+			continue SUBJECT;
 		    }
 		}
+	    }
+	}
+    }
+
+    private void replaceWithHardLink(FileEntry linkTarget, FileEntry toReplace) {
+	Objects.requireNonNull(linkTarget);
+	Objects.requireNonNull(toReplace);
+	try (TempDir tempDir = new TempDir(toReplace.getPath().getParent())) {
+	    Path link = tempDir.getPath().resolve("link");
+
+	    try (TempLink tempLink = new TempLink(link, linkTarget.getPath())) {
+		tempLink.move(toReplace.getPath());
+	    } catch (IOException e) {
+		e.printStackTrace();
 	    }
 	}
     }
