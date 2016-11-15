@@ -11,12 +11,27 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Handler;
+import java.util.logging.Logger;
 
 public class Deduplicator {
 
     public static void main(String[] args) {
+	setupLoggers();
+
 	Deduplicator dedup = new Deduplicator(args);
 	dedup.run();
+    }
+
+    private static void setupLoggers() {
+	Logger logger = Logger.getLogger("");
+	Handler myHandler = new ConsoleHandler();
+	myHandler.setFormatter(new MyFormatter());
+	for (Handler handler : logger.getHandlers()) {
+	    logger.removeHandler(handler);
+	}
+	logger.addHandler(myHandler);
     }
 
     private List<Path> topDirectories = new ArrayList<>();
