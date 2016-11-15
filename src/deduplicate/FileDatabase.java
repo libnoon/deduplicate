@@ -22,17 +22,16 @@ import java.util.logging.Logger;
 
 public class FileDatabase {
 
-    public static final int BUFFER_SIZE = 1024 * 1024;
+    private static final int BUFFER_SIZE = 1024 * 1024;
 
-    private static Logger logger = Logger.getLogger("FileDatabase");
+    private static final Logger logger = Logger.getLogger("FileDatabase");
 
-    List<FileEntry> fileEntries = new ArrayList<>();
-    private Map<String, List<FileEntry>> digestMap = new HashMap<>();
+    private final List<FileEntry> fileEntries = new ArrayList<>();
+    private final Map<String, List<FileEntry>> digestMap = new HashMap<>();
 
     public void add(Path file) {
 	Objects.requireNonNull(file);
 	FileEntry fileEntry = new FileEntry(file);
-
 	fileEntries.add(fileEntry);
     }
 
@@ -57,7 +56,6 @@ public class FileDatabase {
 	    if (digest == null) {
 		try {
 		    MessageDigest messageDigest = MessageDigest.getInstance(DIGEST_ALGORITHM);
-		    final int BUFFER_SIZE = 1024 * 1024;
 		    byte[] buffer = new byte[BUFFER_SIZE];
 		    try (InputStream inputStream = Files.newInputStream(path);
 			    DigestInputStream digestInputStream = new DigestInputStream(inputStream, messageDigest)) {
